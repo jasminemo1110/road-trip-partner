@@ -1,9 +1,8 @@
 export const PRODUCT_NAME = 'Road Trip Partner';
 export const AUTHOR_LINE = 'Created by 茉白';
-// Permanent attribution link. Update to the public repo URL once the project
-// is open-sourced (e.g. https://github.com/jasminemo1110/road-trip-partner).
+// Permanent attribution link to the public project repo.
 export const ATTRIBUTION_GITHUB_HANDLE = 'jasminemo1110';
-export const ATTRIBUTION_GITHUB_URL = `https://github.com/${ATTRIBUTION_GITHUB_HANDLE}`;
+export const ATTRIBUTION_GITHUB_URL = 'https://github.com/jasminemo1110/road-trip-partner';
 
 interface AttributionProps {
   variant?: 'sidebar' | 'inline';
