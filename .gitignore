@@ -38,9 +38,8 @@ pnpm-debug.log*
 frontend/dist/
 frontend/dist-ssr/
 
-# Env files
-# NOTE: frontend/.env IS committed (private repo, contains AMap key + jscode for convenience).
-# If this repo ever becomes public, rotate the AMap keys immediately.
+# Env files (keep AMap keys, edit tokens etc. out of version control)
+frontend/.env
 .env.local
 .env.*.local
 
