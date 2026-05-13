@@ -70,8 +70,6 @@ cp frontend/.env.example frontend/.env
 
 ## AMap 密钥申请（必须！）
 
-**为什么不用 Google Maps**：本项目最初为中国用户设计，Google Maps 在中国大陆无 VPN 不可用。
-
 ### 申请步骤
 
 1. 注册 [高德开放平台](https://lbs.amap.com/) 账号
