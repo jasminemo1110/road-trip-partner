@@ -325,11 +325,21 @@ fly machine restart -a event-site
 
 ## 致谢
 
+技术栈：
+
 - **AMap (高德地图)** — 地图底图和驾驶路线 API
 - **FastAPI + SQLModel** — 后端框架
 - **React + Vite + Ant Design v6** — 前端框架
 - **Wikipedia API** — 城市悬浮预览
 - **Playwright** — 高清图片导出自动化
+
+AI 协作（这个项目是 vibe-coding 出来的）：
+
+- **Claude Code** — 主要的代码协作者，参与了架构设计、所有功能开发、开源准备和部署
+- **Codex** — 项目早期阶段的代码协作
+- **ChatGPT / GPT-4** — 设计讨论、文案润色、视觉素材生成
+
+📝 一个真实的"AI 时代独立开发"案例——感谢每一个让这事变得可行的工具。
 
 ## License
 
