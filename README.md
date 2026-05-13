@@ -1,4 +1,6 @@
-# Road Trip Partner
+<p align="center">
+  <img src="docs/screenshots/banner.png" alt="Road Trip Partner" width="100%" />
+</p>
 
 <p align="center">
   <em>在地图上记录自驾旅行路线，支持照片、日期、多线路叠加与高清图片导出。</em>
@@ -11,6 +13,35 @@
 <p align="center">
   Created by <a href="https://github.com/jasminemo1110">茉白</a> · MIT License
 </p>
+
+---
+
+## 效果展示
+
+> 以下截图来自作者本人在 [road-trip-partner.fly.dev](https://road-trip-partner.fly.dev/) 的实际部署。新部署默认走"Road Trip Partner"通用品牌——所有个人信息和图片都通过环境变量自定义（见 [品牌定制](#品牌定制branding)）。
+
+<table>
+  <tr>
+    <td align="center" width="65%">
+      <img src="docs/screenshots/desktop.png" alt="Desktop view" /><br/>
+      <em>桌面端：8 条路线叠加显示 · 左侧线路面板 · 右侧地图样式切换</em>
+    </td>
+    <td align="center" width="35%">
+      <img src="docs/screenshots/mobile.jpg" alt="Mobile view" /><br/>
+      <em>移动端：父母友好的大字号 · "我的线路"抽屉</em>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="docs/screenshots/export-overview.png" alt="Overview export" /><br/>
+      <em>总览导出图：所有路线 + 城市站点 + 数据汇总</em>
+    </td>
+    <td align="center">
+      <img src="docs/screenshots/export-route.png" alt="Single route export" /><br/>
+      <em>单条路线导出图：纯路线图 + 城市细节图 + 站点流</em>
+    </td>
+  </tr>
+</table>
 
 ---
 
