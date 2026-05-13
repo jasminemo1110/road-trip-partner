@@ -15,6 +15,11 @@ backend/travel.db
 backend/travel.db-journal
 backend/travel.db-wal
 backend/travel.db-shm
+backend/personal-travel.db
+backend/personal-travel.db-journal
+backend/personal-travel.db-wal
+backend/personal-travel.db-shm
+backend/*.db.backup-*
 
 # User-uploaded photos / videos
 backend/uploads/
@@ -33,8 +38,9 @@ pnpm-debug.log*
 frontend/dist/
 frontend/dist-ssr/
 
-# Env files (keep AMap keys, edit tokens etc. out of version control)
-frontend/.env
+# Env files
+# NOTE: frontend/.env IS committed (private repo, contains AMap key + jscode for convenience).
+# If this repo ever becomes public, rotate the AMap keys immediately.
 .env.local
 .env.*.local
 
