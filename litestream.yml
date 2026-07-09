@@ -1,0 +1,12 @@
+# Litestream 配置：把 SQLite 实时复制到 S3 兼容对象存储。
+# 凭证从环境变量读取（AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY 自动识别）。
+# 在 Fly 上跑 `fly storage create` 会自动注入 BUCKET_NAME / AWS_ENDPOINT_URL_S3
+# 等 secrets；没配这些变量时 docker-entrypoint.sh 会跳过 Litestream。
+dbs:
+  - path: /data/travel.db
+    replica:
+      type: s3
+      bucket: ${BUCKET_NAME}
+      path: litestream/travel.db
+      endpoint: ${AWS_ENDPOINT_URL_S3}
+      region: ${AWS_REGION}

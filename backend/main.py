@@ -1,6 +1,7 @@
 import os
 import io
 import re
+import secrets
 import shutil
 import subprocess
 import threading
@@ -14,7 +15,7 @@ from urllib.request import urlopen
 from urllib.parse import urlencode
 
 from fastapi import Depends, FastAPI, HTTPException, Request, UploadFile, File, Form
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session, create_engine, select, SQLModel
@@ -39,6 +40,9 @@ SQLModel.metadata.create_all(engine)
 def ensure_schema() -> None:
     """Apply small SQLite schema additions for existing local databases."""
     with engine.connect() as conn:
+        # WAL 模式：Litestream 复制的前提，同时改善读写并发。设置持久化在
+        # DB 文件头里，重复执行是 no-op。
+        conn.exec_driver_sql("PRAGMA journal_mode=WAL")
         columns = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(route)").fetchall()}
         if "qr_code_path" not in columns:
             conn.exec_driver_sql("ALTER TABLE route ADD COLUMN qr_code_path TEXT DEFAULT ''")
@@ -65,8 +69,22 @@ AMAP_SECURITY_CODE = os.getenv("AMAP_SECURITY_CODE", os.getenv("VITE_AMAP_SECURI
 EDIT_TOKEN = os.getenv("EDIT_TOKEN", "")
 export_jobs: dict[str, dict] = {}
 
+# 单个上传文件（照片/二维码）的大小上限；整个请求体再放宽一档兜底。
+_MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(25 * 1024 * 1024)))
+_MAX_REQUEST_BYTES = int(os.getenv("MAX_REQUEST_BYTES", str(64 * 1024 * 1024)))
+
 app = FastAPI(title="Travel Map API")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+
+@app.middleware("http")
+async def limit_request_size(request: Request, call_next):
+    # Starlette 在 endpoint 拿到 UploadFile 之前就已经把 multipart 全量收下
+    # （spool 到磁盘），endpoint 里的检查挡不住超大请求本身，只能在这里拦。
+    content_length = request.headers.get("content-length")
+    if content_length and content_length.isdigit() and int(content_length) > _MAX_REQUEST_BYTES:
+        return JSONResponse(status_code=413, content={"detail": "Request body too large"})
+    return await call_next(request)
 
 
 def get_session():
@@ -78,7 +96,7 @@ def require_edit(request: Request) -> None:
     if not EDIT_TOKEN:
         return
     token = request.headers.get("X-Edit-Token") or request.query_params.get("edit") or request.query_params.get("token")
-    if token != EDIT_TOKEN:
+    if not token or not secrets.compare_digest(token, EDIT_TOKEN):
         raise HTTPException(status_code=403, detail="Edit token required")
 
 
@@ -215,27 +233,62 @@ def _cleanup_export_jobs() -> None:
             export_jobs.pop(job_id, None)
 
 
+# 导出跑的是 Playwright + Chromium，1GB 的 Fly 机器同时跑两个必然互相拖死，
+# 同一时间只允许一个任务。超过 2 小时的 running 视为僵尸（正常任务 1 小时
+# proc.wait 超时就会转 failed），不再阻塞新任务。
+_EXPORT_JOB_STALE_SECONDS = 2 * 60 * 60
+_EXPORT_FILES_MAX_AGE_SECONDS = int(os.getenv("EXPORT_FILES_MAX_AGE_SECONDS", str(24 * 60 * 60)))
+_export_start_lock = threading.Lock()
+
+
+def _cleanup_stale_export_dirs() -> None:
+    """清掉超过一天的旧导出目录。文件清理接口只在用户成功保存 zip 后被
+    前端调用，失败或没下载的任务会把 PNG/zip 留在卷上慢慢吃空间，所以
+    每次启动新任务时顺手清一遍。活跃任务不会受影响：任务最长 1 小时，
+    远小于 1 天的门槛。"""
+    now = time.time()
+    if not EXPORT_OUT_DIR.exists():
+        return
+    for entry in EXPORT_OUT_DIR.iterdir():
+        if not entry.is_dir():
+            continue
+        try:
+            if now - entry.stat().st_mtime > _EXPORT_FILES_MAX_AGE_SECONDS:
+                shutil.rmtree(entry, ignore_errors=True)
+        except OSError:
+            continue
+
+
 @app.post("/api/export-images/start")
 def start_export_images(data: ExportImagesRequest, request: Request):
     require_edit(request)
     if not data.include:
         raise HTTPException(400, "No export items selected")
-    _cleanup_export_jobs()
-    job_id = uuid.uuid4().hex
-    export_jobs[job_id] = {
-        "id": job_id,
-        "status": "queued",
-        "created_ts": time.time(),
-        "created_at": datetime.utcnow().isoformat(),
-        "include": data.include,
-        "wait": data.wait,
-        "scale": data.scale,
-        "base_url": str(request.base_url).rstrip("/"),
-        "output_dir": str(EXPORT_OUT_DIR / job_id),
-        "progress_current": 0,
-        "progress_total": len(data.include),
-        "current_label": "",
-    }
+    with _export_start_lock:
+        _cleanup_export_jobs()
+        _cleanup_stale_export_dirs()
+        now = time.time()
+        for job in export_jobs.values():
+            if (
+                job.get("status") in ("queued", "running")
+                and now - job.get("created_ts", 0) < _EXPORT_JOB_STALE_SECONDS
+            ):
+                raise HTTPException(409, "已有导出任务在进行中，请等它完成后再试")
+        job_id = uuid.uuid4().hex
+        export_jobs[job_id] = {
+            "id": job_id,
+            "status": "queued",
+            "created_ts": time.time(),
+            "created_at": datetime.utcnow().isoformat(),
+            "include": data.include,
+            "wait": data.wait,
+            "scale": data.scale,
+            "base_url": str(request.base_url).rstrip("/"),
+            "output_dir": str(EXPORT_OUT_DIR / job_id),
+            "progress_current": 0,
+            "progress_total": len(data.include),
+            "current_label": "",
+        }
     thread = threading.Thread(
         target=_run_export_job,
         args=(job_id, data.include, data.wait, data.scale),
@@ -365,6 +418,8 @@ def toggle_favorite(route_id: int):
 @app.post("/api/routes/{route_id}/qr", response_model=RouteRead, dependencies=[Depends(require_edit)])
 async def upload_route_qr(route_id: int, file: UploadFile = File(...)):
     contents = await file.read()
+    if len(contents) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(413, f"File too large: {len(contents):,} bytes (limit {_MAX_UPLOAD_BYTES:,})")
     ext = Path(file.filename or "qr.png").suffix.lower() or ".png"
     if ext not in {".png", ".jpg", ".jpeg", ".webp"}:
         raise HTTPException(400, "Unsupported QR image format")
@@ -421,6 +476,7 @@ def delete_route(route_id: int):
             for photo in photos:
                 _delete_photo_files(photo)
                 session.delete(photo)
+            _invalidate_leg_cache(session, stop.id)
             session.delete(stop)
         _delete_route_qr_file(route.qr_code_path)
         session.delete(route)
@@ -516,7 +572,7 @@ def get_route_leg_paths(route_id: int):
         return [LegPathRead(stop_a_id=l.stop_a_id, stop_b_id=l.stop_b_id, path=json.loads(l.path_json)) for l in legs]
 
 
-@app.post("/api/leg-paths", response_model=LegPathRead)
+@app.post("/api/leg-paths", response_model=LegPathRead, dependencies=[Depends(require_edit)])
 def save_leg_path(data: LegPathCreate):
     a, b = sorted([data.stop_a_id, data.stop_b_id])
     path = data.path if data.stop_a_id == a else list(reversed(data.path))
@@ -552,6 +608,8 @@ def reorder_stops(route_id: int, data: ReorderRequest):
 @app.post("/api/stops/{stop_id}/photos", response_model=PhotoRead, dependencies=[Depends(require_edit)])
 async def upload_photo(stop_id: int, file: UploadFile = File(...), caption: str = Form("")):
     contents = await file.read()
+    if len(contents) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(413, f"File too large: {len(contents):,} bytes (limit {_MAX_UPLOAD_BYTES:,})")
     ext = Path(file.filename or "photo.jpg").suffix.lower() or ".jpg"
     filename = f"{stop_id}_{os.urandom(6).hex()}{ext}"
     file_path = UPLOAD_DIR / filename

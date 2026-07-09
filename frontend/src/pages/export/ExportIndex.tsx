@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import axios from 'axios';
 import { Button, Checkbox, message, Progress, Spin, Tag } from 'antd';
 import { CheckOutlined, DownloadOutlined, EyeOutlined } from '@ant-design/icons';
 import { cleanupExportImagesFiles, downloadExportImagesZip, getExportImagesJob, getRoutes, startExportImages, type ExportImagesJob } from '../../api';
@@ -225,7 +226,8 @@ export default function ExportIndex() {
       pollExportJob(job.id);
     } catch (error) {
       setExporting(false);
-      messageApi.error('启动导出失败');
+      const detail = axios.isAxiosError(error) ? error.response?.data?.detail : undefined;
+      messageApi.error(typeof detail === 'string' ? detail : '启动导出失败');
     }
   };
 

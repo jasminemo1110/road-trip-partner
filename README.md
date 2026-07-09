@@ -257,6 +257,18 @@ fly deploy --app your-app-name --local-only
 公开只读链接：`https://your-app-name.fly.dev/`
 编辑链接：`https://your-app-name.fly.dev/?edit=YOUR_EDIT_TOKEN`（首次打开后 token 存进 localStorage，URL 自动清理掉）
 
+### 可选：自动备份到对象存储（强烈推荐）
+
+数据库和照片默认只存在 Fly volume 一份。镜像内置了 [Litestream](https://litestream.io/)（SQLite 实时复制）+ rclone（照片/二维码周期同步），配一个 S3 兼容 bucket 即可启用：
+
+```bash
+# 用 Fly 自带的 Tigris 最省事：一条命令建 bucket 并自动注入所有所需 secrets
+fly storage create --name your-app-backup --app your-app-name
+fly deploy --app your-app-name --local-only   # 重新部署后生效
+```
+
+启用后：数据库写入 1 秒内复制到 bucket；照片每 10 分钟增量同步；volume 损坏或重建时启动自动恢复。不配置这些 secrets 则完全跳过，无副作用。用其他 S3 服务（R2/B2/MinIO）时手动设置 `BUCKET_NAME`、`AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`、`AWS_ENDPOINT_URL_S3`、`AWS_REGION` 即可，细节见 `litestream.yml` 和 `docker-entrypoint.sh`。
+
 ### 多站点部署（同一份代码、不同外观）
 
 想跑第二个站（比如临时活动版）？再建一个 Fly app，secrets 配不同的值即可：
@@ -304,20 +316,22 @@ fly machine restart -a event-site
 
 所有 UI 中文文案集中在 `frontend/src/i18n/zh.ts`（如该文件还未创建，欢迎 PR 重构现存硬编码字符串）。复制成 `en.ts` 翻译即可作为英文版起点。
 
-### 线上一键导出的已知问题
+### 线上一键导出的已知问题（欢迎接手 🙌）
 
-`POST /api/export-images/start` 这条服务端导出链路目前**不可靠**。症状：
+`POST /api/export-images/start` 这条服务端导出链路目前**不可靠**，而且经过排查我们认为**问题出在架构而不是某个 bug**，维护者已决定不再继续修补现有实现，改为等待"换赛道"方案（见下）：
 
-- Fly 1GB 机器跑 Playwright + Chromium，内存吃紧；并发或大尺寸时容易 OOM 中断
+- Fly 1GB 共享 CPU 机器没有 GPU，headless Chromium 只能软件光栅化渲染 AMap 的 canvas/WebGL——3200×2800 视口 × 2 DPR ≈ 3600 万像素，CPU 突发额度耗尽后被限流，渲染慢到超时
 - AMap 渲染异步、Tile 加载有延迟，截图时机难以严格判定"画面已完整"——容易产生白色/不完整/标准底图样式不对的截图
-- 目前的 readiness 检查只是 React/JS 结构性"地图组件已就绪"，并不验证**像素层面**真的渲染完成
+- 目前的 readiness 检查只是 React/JS 结构性"地图组件已就绪"，并不验证**像素层面**真的渲染完成；机器越卡，"DOM 说好了"和"像素画完了"之间的鸿沟越大
 
-**当前的可靠路径**：本地 `npm run export:images --` Playwright 截图，4× 缩放、8 秒等待、reload-before-shoot。在本机用本机 Chrome 跑稳定高清。
+现状：线上一键导出按钮仍然可用（同一时间只允许一个任务，避免两个 Chromium 挤爆机器），但产出质量不保证；**正式出图请用本地导出**：`npm run export:images --`，4× 缩放、8 秒等待、reload-before-shoot，在本机用本机 Chrome 跑稳定高清。
 
-**改进方向（PR welcome）**：
-- 加像素验证（截图后验证图中是否有合理的 tile 内容、route polyline 是否可见）
-- 升级 Fly 机器到 2GB+，给 Playwright 更多 headroom
-- 用静态地图/Tile 拼接 / Canvas 渲染管线替换实时浏览器截图（最稳健但工作量大）
+**换赛道方向（和 MapProvider 一样，欢迎 PR / issue 讨论）**，两个候选：
+
+1. **成品图库**（工作量小，推荐入手）：本地高质量出图 → 上传到服务器 → 线上导出页变成"最新成品图的展示与下载"。确定性 100%，服务器零渲染负担，访客拿到的永远是 4× 高清图。
+2. **确定性合成管线**（工作量大但最彻底）：不开浏览器，服务端用静态地图 / Tile 拼接 + Canvas/Pillow 自行叠加路线、标签与版式。需要处理 GCJ-02 瓦片坐标数学和标签碰撞排版，适合想深入玩地图渲染的贡献者。
+
+如果你就是想把现有实时截图链路修到能用，也欢迎：思路是截图后做像素级验证（tile 内容、路线 polyline 可见性、实际样式/zoom/bounds 与期望比对），不符则重试或明确报错，而不是把"组件就绪"当"渲染完成"。
 
 ### Branding 默认值
 
