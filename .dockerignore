@@ -18,3 +18,12 @@ frontend/.DS_Store
 
 files
 *.log
+
+# Persistent personal runtime data lives on the mounted volume.
+backend/*.db.backup-*
+backend/branding
+backend/exports
+
+# Personal manifests and deployment-only helpers are not application source.
+data
+AGENTS.md

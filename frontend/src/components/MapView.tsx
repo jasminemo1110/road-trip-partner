@@ -351,7 +351,7 @@ export default function MapView({
     infoWindow.setContent(wikiLoadingContent(stop, route));
     infoWindow.open(mapRef.current, [stop.longitude, stop.latitude]);
 
-    fetchWikiSummary(stop.city_name).then(summary => {
+    fetchWikiSummary(stop.city_name, stop.longitude, stop.latitude).then(summary => {
       if (infoWindowRef.current !== infoWindow) return;
       infoWindow.setContent(wikiInfoWindowContent(stop, route, summary));
     });

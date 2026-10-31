@@ -34,12 +34,12 @@ export default function RouteSidebar({ route }: Props) {
   const col2 = twoCol ? stops.slice(splitAt) : [];
 
   return (
-    <div style={{
-      width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
+    <div data-export-panel style={{
+      width: '100%', flex: 1, display: 'flex', flexDirection: 'column',
       background: EXPORT_PANEL_BG, borderRadius: 16, padding: 40,
       boxShadow: '0 4px 24px rgba(0,0,0,.06)',
       fontFamily: '"PingFang SC", "Microsoft YaHei", sans-serif',
-      color: '#1a1a1a', boxSizing: 'border-box', overflow: 'hidden',
+      color: '#1a1a1a', overflowWrap: 'anywhere', boxSizing: 'border-box', overflow: 'hidden',
     }}>
       {/* Master-title kicker — series brand connecting all exports together. */}
       <div style={{ marginBottom: 24 }}>
@@ -66,7 +66,7 @@ export default function RouteSidebar({ route }: Props) {
         </div>
       </div>
 
-      <div style={{ flex: 1, display: 'flex', gap: 32, overflow: 'hidden' }}>
+      <div style={{ flex: '1 0 auto', display: 'flex', gap: 32 }}>
         <TimelineColumn stops={col1} routeColor={route.color} />
         {twoCol && <TimelineColumn stops={col2} routeColor={route.color} />}
       </div>
@@ -100,7 +100,7 @@ function TimelineRow({ stop, routeColor, isLast }: { stop: Stop; routeColor: str
   const dotOffset = Math.round(SZ.name * 0.4);
 
   return (
-    <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+    <div data-export-stop={stop.id} data-export-item style={{ display: 'flex', gap: 14, alignItems: 'flex-start', flexShrink: 0 }}>
       <div style={{
         width: SZ.dateColW, flexShrink: 0, fontSize: SZ.date, color: '#888',
         lineHeight: 1.4, paddingTop: dotOffset - 2, fontVariantNumeric: 'tabular-nums',

@@ -1,3 +1,4 @@
+import { useExportQr } from './ExportQrContext';
 import dayjs from 'dayjs';
 import type { Route, Stop } from '../../types';
 import MapView from '../MapView';
@@ -47,7 +48,7 @@ export default function PortraitExport({ type, routes, routeId, layout = 'defaul
   return (
     <div style={{
       width: PORTRAIT_W,
-      height: PORTRAIT_H,
+      minHeight: PORTRAIT_H,
       background: EXPORT_BG,
       padding: PAD,
       boxSizing: 'border-box',
@@ -57,6 +58,7 @@ export default function PortraitExport({ type, routes, routeId, layout = 'defaul
       overflow: 'hidden',
       fontFamily: '"PingFang SC", "Microsoft YaHei", sans-serif',
       color: '#1a1a1a',
+      overflowWrap: 'anywhere',
     }}>
       {isCustom ? (
         <PortraitCustom routes={routes} />
@@ -122,12 +124,12 @@ function PortraitCustom({ routes }: { routes: Route[] }) {
 
 function PortraitHeader({ children }: { children?: React.ReactNode }) {
   return (
-    <div style={{
+    <div data-export-panel style={{
       background: EXPORT_PANEL_BG,
       borderRadius: 16,
       padding: '30px 34px',
       boxShadow: '0 4px 24px rgba(0,0,0,.06)',
-      height: HEADER_H,
+      minHeight: HEADER_H,
       boxSizing: 'border-box',
       flexShrink: 0,
       textAlign: 'center',
@@ -144,6 +146,7 @@ function PortraitHeader({ children }: { children?: React.ReactNode }) {
 }
 
 function PortraitFooterMark({ qrSrc, qrSize = 150 }: { qrSrc?: string; qrSize?: number }) {
+  const showQr = useExportQr();
   return (
     <div style={{
       display: 'flex',
@@ -154,7 +157,7 @@ function PortraitFooterMark({ qrSrc, qrSize = 150 }: { qrSrc?: string; qrSize?: 
       borderTop: `1px solid ${EXPORT_DIVIDER}`,
       paddingTop: 16,
       marginTop: 16,
-      minHeight: qrSize + 18,
+      minHeight: showQr ? qrSize + 18 : undefined,
       flexShrink: 0,
     }}>
       <QrPlaceholder size={qrSize} marginTop={0} src={qrSrc} />
@@ -166,6 +169,7 @@ function PortraitFooterMark({ qrSrc, qrSize = 150 }: { qrSrc?: string; qrSize?: 
 }
 
 function PortraitMultiFooterMark({ routes }: { routes: Route[] }) {
+  const showQr = useExportQr();
   const qrSize = routes.length <= 2 ? 145 : routes.length <= 3 ? 125 : 104;
 
   return (
@@ -179,7 +183,7 @@ function PortraitMultiFooterMark({ routes }: { routes: Route[] }) {
       marginTop: 14,
       flexShrink: 0,
     }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '10px 14px', maxWidth: 760 }}>
+      {showQr && <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '10px 14px', maxWidth: 760 }}>
         {routes.map(route => (
           <div key={route.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
             <QrPlaceholder
@@ -188,12 +192,12 @@ function PortraitMultiFooterMark({ routes }: { routes: Route[] }) {
               src={route.qr_code_path ? routeQrUrl(route.id, route.qr_code_path) : undefined}
               caption="二维码"
             />
-            <div style={{ maxWidth: qrSize + 24, fontSize: 14, color: '#78817a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <div style={{ maxWidth: qrSize + 24, fontSize: 14, color: '#78817a', overflowWrap: 'anywhere', textAlign: 'center', lineHeight: 1.4 }}>
               {route.name}
             </div>
           </div>
         ))}
-      </div>
+      </div>}
       <div style={{ width: 360 }}>
         <Watermark align="left" divider={false} scale={1.18} />
       </div>
@@ -251,8 +255,8 @@ function CustomRoutesFooter({ routes }: { routes: Route[] }) {
   const dense = routes.length >= 4 || totalStops > 34;
 
   return (
-    <div style={{
-      flex: 1,
+    <div data-export-panel style={{
+      flex: '1 0 auto',
       background: EXPORT_PANEL_BG,
       borderRadius: 16,
       padding: '28px 34px 18px',
@@ -265,10 +269,8 @@ function CustomRoutesFooter({ routes }: { routes: Route[] }) {
         display: 'grid',
         gridTemplateColumns: twoCol ? '1fr 1fr' : '1fr',
         gap: dense ? '10px 20px' : compact ? '14px 24px' : '18px 28px',
-        flex: 1,
-        minHeight: 0,
+        flex: '1 0 auto',
         alignContent: 'start',
-        overflow: 'hidden',
       }}>
         {sorted.map(route => (
           <PortraitRouteFlowBlock key={route.id} route={route} compact={compact} dense={dense} />
@@ -287,7 +289,7 @@ function PortraitRouteFlowBlock({ route, compact, dense }: { route: Route; compa
   const dist = Math.round(routeDistance(route));
 
   return (
-    <div style={{ minWidth: 0 }}>
+    <div data-export-route={route.id} data-export-item style={{ minWidth: 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <span style={{
           width: 17,
@@ -412,6 +414,7 @@ function PortraitOverviewSingle({ routes }: { routes: Route[] }) {
 }
 
 function OverviewFooter({ routes }: { routes: Route[] }) {
+  const columns = routes.length > 8 ? 3 : 2;
   const config = useRuntimeConfig();
   const overviewQrSrc = config?.overviewQrUrl || undefined;
   const sorted = [...routes].sort((a, b) =>
@@ -419,8 +422,8 @@ function OverviewFooter({ routes }: { routes: Route[] }) {
   );
 
   return (
-    <div style={{
-      flex: 1,
+    <div data-export-panel style={{
+      flex: '1 0 auto',
       background: EXPORT_PANEL_BG,
       borderRadius: 16,
       padding: '30px 34px 20px',
@@ -431,12 +434,10 @@ function OverviewFooter({ routes }: { routes: Route[] }) {
     }}>
       <div style={{
         display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
+        gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
         gap: '16px 30px',
-        flex: 1,
-        minHeight: 0,
+        flex: '1 0 auto',
         alignContent: 'start',
-        overflow: 'hidden',
       }}>
         {sorted.map(route => {
           const start = routeStartDate(route);
@@ -444,7 +445,7 @@ function OverviewFooter({ routes }: { routes: Route[] }) {
           const days = routeTotalDays(route);
           const dist = Math.round(routeDistance(route));
           return (
-            <div key={route.id} style={{ display: 'flex', gap: 14, minWidth: 0 }}>
+            <div key={route.id} data-overview-route={route.id} data-export-route={route.id} data-export-item style={{ display: 'flex', gap: 14, minWidth: 0 }}>
               <span style={{
                 width: 18,
                 height: 18,
@@ -545,8 +546,8 @@ function PortraitRoute({ route, routes }: { route: Route; routes: Route[] }) {
 
 function RouteFooter({ stops, routeColor, qrSrc }: { stops: Stop[]; routeColor: string; qrSrc?: string }) {
   return (
-    <div style={{
-      flex: 1,
+    <div data-export-panel style={{
+      flex: '1 0 auto',
       background: EXPORT_PANEL_BG,
       borderRadius: 16,
       padding: '30px 34px 20px',
@@ -555,7 +556,7 @@ function RouteFooter({ stops, routeColor, qrSrc }: { stops: Stop[]; routeColor: 
       flexDirection: 'column',
       overflow: 'hidden',
     }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px 18px', alignContent: 'flex-start', flex: 1 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px 18px', alignContent: 'flex-start', flex: '1 0 auto' }}>
         {stops.map((stop, idx) => (
           <StopFlowItem
             key={stop.id}
@@ -587,14 +588,14 @@ function StopFlowItem({
   const isFlight = stop.transport_mode === 'flight';
 
   return (
-    <div style={{ display: 'inline-flex', alignItems: 'center', gap: density === 'dense' ? 8 : 12 }}>
+    <div data-export-stop={stop.id} data-export-item style={{ display: 'inline-flex', alignItems: 'center', maxWidth: '100%', minWidth: 0, gap: density === 'dense' ? 8 : 12 }}>
       <div style={{
         display: 'inline-flex',
         flexDirection: 'column',
         alignItems: 'center',
         minWidth: density === 'dense' ? 60 : 76,
       }}>
-        <div style={{ fontSize: density === 'dense' ? 22 : 28, fontWeight: 650, lineHeight: density === 'dense' ? 1.18 : 1.25, whiteSpace: 'nowrap' }}>
+        <div style={{ fontSize: density === 'dense' ? 22 : 28, fontWeight: 650, lineHeight: density === 'dense' ? 1.18 : 1.25, overflowWrap: 'anywhere', textAlign: 'center' }}>
           {isFlight && <span style={{ marginRight: 6, color: routeColor }}>✈</span>}
           {stop.city_name}
         </div>

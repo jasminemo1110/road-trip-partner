@@ -116,6 +116,7 @@ class ExportImagesRequest(BaseModel):
     include: List[str]
     wait: int = 1500
     scale: float = 2
+    show_qr: bool = False
 
 
 def _parse_lines(env_value: str) -> List[str]:
@@ -153,7 +154,7 @@ def get_public_config():
     }
 
 
-def _run_export_job(job_id: str, include: List[str], wait: int, scale: float) -> None:
+def _run_export_job(job_id: str, include: List[str], wait: int, scale: float, show_qr: bool = False) -> None:
     job = export_jobs[job_id]
     job["status"] = "running"
     job["started_at"] = datetime.utcnow().isoformat()
@@ -172,6 +173,7 @@ def _run_export_job(job_id: str, include: List[str], wait: int, scale: float) ->
         f"--out={job_out_dir}",
         f"--wait={wait}",
         f"--scale={scale:g}",
+        f"--qr={str(show_qr).lower()}",
         "--reload=false",
     ]
     job["command"] = " ".join(cmd)
@@ -291,7 +293,7 @@ def start_export_images(data: ExportImagesRequest, request: Request):
         }
     thread = threading.Thread(
         target=_run_export_job,
-        args=(job_id, data.include, data.wait, data.scale),
+        args=(job_id, data.include, data.wait, data.scale, data.show_qr),
         daemon=True,
     )
     thread.start()

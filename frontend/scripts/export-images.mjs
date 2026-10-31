@@ -1,3 +1,4 @@
+import { inspectExportLayout, assertExportSize } from './lib/export-layout.mjs';
 import { chromium } from 'playwright-core';
 import { mkdir, stat, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -21,6 +22,7 @@ const minBytes = Number(args.minBytes || 500000);
 const include = args.include ? new Set(String(args.include).split(',').map(s => s.trim()).filter(Boolean)) : null;
 const routeIdFilter = args.route ? Number(args.route) : null;
 const headed = Boolean(args.headed);
+const showQr = args.qr === 'true';
 
 await mkdir(outDir, { recursive: true });
 
@@ -194,7 +196,7 @@ async function fetchJson(url) {
 }
 
 async function captureVariant(page, variant) {
-  const url = `${baseUrl}${variant.url}`;
+  const url = `${baseUrl}${variant.url}&qr=${showQr}`;
   const filePath = path.join(outDir, `${variant.filename}.png`);
   let lastError = null;
 
@@ -217,6 +219,13 @@ async function captureVariant(page, variant) {
       await waitForMapImages(page);
       console.log(`  timing: map images ${Date.now() - mapImagesAt}ms`);
       await page.waitForTimeout(waitMs + (attempt - 1) * retryWaitMs);
+      await page.evaluate(async () => { await document.fonts.ready; });
+      await page.waitForFunction(() => {
+        const status = document.querySelector('#export-canvas')?.dataset.exportLayoutStatus;
+        return status === 'ready' || status === 'error';
+      }, null, { timeout: 15000 });
+      const layoutReport = await page.locator('#export-canvas').evaluate(inspectExportLayout);
+      assertExportSize(layoutReport, scale);
       const screenshotAt = Date.now();
       await page.locator('#export-canvas').screenshot({
         path: filePath,
@@ -234,6 +243,8 @@ async function captureVariant(page, variant) {
           filename: `${variant.filename}.png`,
           filePath,
           bytes: info.size,
+          width: layoutReport.width,
+          height: layoutReport.height,
           attempts: attempt,
         };
       }

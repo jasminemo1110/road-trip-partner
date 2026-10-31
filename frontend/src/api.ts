@@ -86,8 +86,8 @@ export interface ExportImagesJob {
   finished_at?: string;
 }
 
-export const startExportImages = (include: string[], wait = 8000, scale = 4) =>
-  api.post<ExportImagesJob>('/export-images/start', { include, wait, scale }).then(r => r.data);
+export const startExportImages = (include: string[], wait = 8000, scale = 4, showQr = false) =>
+  api.post<ExportImagesJob>('/export-images/start', { include, wait, scale, show_qr: showQr }).then(r => r.data);
 
 export const getExportImagesJob = (jobId: string) =>
   api.get<ExportImagesJob>(`/export-images/${jobId}`).then(r => r.data);

@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useExportLayout } from '../../utils/useExportLayout';
+import { ExportQrContext } from '../../components/export/ExportQrContext';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Spin } from 'antd';
 import MapView from '../../components/MapView';
@@ -20,6 +22,7 @@ import type { Route } from '../../types';
 //   type=custom&ids=1,2,3          (custom subset of routes)
 //   orientation=landscape | portrait
 //   layout=single                 (portrait overview only: one centered clean map)
+//   qr=true | false                (QR codes, off by default)
 //   names=true | false             (city labels on/off; overview/custom)
 //   id=<route id>                  (required when type=route)
 //   fit=wide | auto                (wide = China-wide; auto = bbox of route)
@@ -36,6 +39,7 @@ export default function ExportRender() {
   const type = params.get('type') ?? 'overview';
   const orientation = params.get('orientation') ?? 'landscape';
   const layout = params.get('layout') ?? 'default';
+  const showQr = params.get('qr') === 'true';
   const showNames = params.get('names') !== 'false';
   const fit = params.get('fit') ?? 'wide';
   const idParam = params.get('id');
@@ -45,6 +49,9 @@ export default function ExportRender() {
 
   const [routes, setRoutes] = useState<Route[]>([]);
   const [loading, setLoading] = useState(true);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const contentKey = JSON.stringify([routes, showQr, orientation, layout, type, routeId, idsParam]);
+  const layoutReport = useExportLayout(canvasRef, contentKey);
 
   useEffect(() => {
     getRoutes().then(rs => { setRoutes(rs); setLoading(false); });
@@ -62,11 +69,23 @@ export default function ExportRender() {
     ? routes.filter(route => customRouteIds.includes(route.id))
     : routes;
 
+  const expectedRoutes = type === 'route' ? undefined : renderRoutes.length;
+  const expectedStops = type === 'route' ? routes.find(route => route.id === routeId)?.stops.length
+    : type === 'custom' ? renderRoutes.reduce((sum, route) => sum + route.stops.length, 0) : undefined;
+  const layoutWarning = layoutReport && !layoutReport.ok
+    ? <div role="alert" style={{ padding: 16, color: '#b42318' }}>导出内容未完整显示，请调整所选线路后再导出。{layoutReport.issues.join('；')}</div>
+    : null;
+
   if (orientation === 'portrait') {
     return (
-      <div id="export-canvas" style={{ width: 'fit-content' }}>
-        <PortraitExport type={type} routes={renderRoutes} routeId={routeId} layout={layout} />
-      </div>
+      <ExportQrContext.Provider value={showQr}>
+        {layoutWarning}
+        <div id="export-canvas" ref={canvasRef}
+          data-export-expected-routes={expectedRoutes} data-export-expected-stops={expectedStops}
+          style={{ width: 'fit-content' }}>
+          <PortraitExport type={type} routes={renderRoutes} routeId={routeId} layout={layout} />
+        </div>
+      </ExportQrContext.Provider>
     );
   }
 
@@ -106,14 +125,18 @@ export default function ExportRender() {
 
   // Page background is a very soft warm pink so the export feels less dry than pure white.
   return (
-    <div id="export-canvas" style={{
-        width: totalW, height: EXPORT_H,
+    <ExportQrContext.Provider value={showQr}>
+      {layoutWarning}
+      <div id="export-canvas" ref={canvasRef}
+        data-export-expected-routes={expectedRoutes} data-export-expected-stops={expectedStops}
+        style={{
+        width: totalW, minHeight: EXPORT_H,
         background: EXPORT_BG,
-        display: 'flex', padding: PAGE_PAD, gap: GAP, boxSizing: 'border-box',
+        display: 'grid', gridTemplateColumns: `${sidebarW}px minmax(0, 1fr)`, padding: PAGE_PAD, gap: GAP, boxSizing: 'border-box',
         position: 'relative', overflow: 'hidden',
       }}>
         {/* Sidebar */}
-        <div style={{ width: sidebarW, height: '100%', flexShrink: 0 }}>
+        <div style={{ width: sidebarW, display: 'flex', minWidth: 0 }}>
           {type === 'custom' ? (
             <CustomRoutesSidebar routes={renderRoutes} />
           ) : overviewLike ? (
@@ -126,12 +149,13 @@ export default function ExportRender() {
         </div>
 
         {/* Map */}
-        <div style={{
-          flex: 1, height: '100%', borderRadius: 16, overflow: 'hidden',
+        <div data-export-map style={{
+          minHeight: EXPORT_H - PAGE_PAD * 2, borderRadius: 16, overflow: 'hidden',
           boxShadow: '0 4px 24px rgba(0,0,0,.08)', position: 'relative',
         }}>
           <MapSignature />
-          <MapView
+          <div style={{ position: 'absolute', inset: 0 }}>
+            <MapView
             routes={renderRoutes}
             visibleRouteIds={visibleRouteIds}
             selectedRouteId={selectedRouteId}
@@ -142,8 +166,10 @@ export default function ExportRender() {
             viewportBounds={viewportBounds}
             cityLabelSize={cityLabelSize}
             onStopClick={() => {}}
-          />
+            />
+          </div>
         </div>
       </div>
+    </ExportQrContext.Provider>
   );
 }

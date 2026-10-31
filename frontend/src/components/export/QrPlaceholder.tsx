@@ -1,3 +1,4 @@
+import { useExportQr } from './ExportQrContext';
 import { EXPORT_BG } from './exportShared';
 
 interface QrPlaceholderProps {
@@ -12,8 +13,10 @@ interface QrPlaceholderProps {
 // placeholder; once route/stop QR upload is implemented, pass the image URL
 // via `src` and it'll render as the real code.
 export default function QrPlaceholder({ src, caption = '扫码查看更多', size = 200, marginTop = 18 }: QrPlaceholderProps) {
+  const showQr = useExportQr();
+  if (!showQr) return null;
   return (
-    <div style={{
+    <div data-export-qr style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center',
       gap: 6, marginTop, flexShrink: 0,
     }}>

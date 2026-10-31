@@ -17,7 +17,7 @@ interface RouteExportGroup {
   options: ExportOption[];
 }
 
-const overviewOptions: ExportOption[] = [
+const baseOverviewOptions: ExportOption[] = [
   {
     id: 'overview-landscape-names',
     label: '横版含城市名',
@@ -91,7 +91,13 @@ function buildCustomOptions(routes: Route[], routeIds: number[]): ExportOption[]
   ].map(option => ({ ...option, label: `${option.label} · ${names}` }));
 }
 
+function withQr(option: ExportOption, showQr: boolean): ExportOption {
+  return { ...option, url: `${option.url}&qr=${showQr}` };
+}
+
 export default function ExportIndex() {
+  const [showQr, setShowQr] = useState(false);
+  const overviewOptions = useMemo(() => baseOverviewOptions.map(option => withQr(option, showQr)), [showQr]);
   const [routes, setRoutes] = useState<Route[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -102,11 +108,14 @@ export default function ExportIndex() {
   const [canExport] = useState(() => hasEditAccess());
   const [messageApi, contextHolder] = message.useMessage();
 
-  const routeGroups = useMemo(() => buildRouteGroups(routes), [routes]);
-  const customOptions = useMemo(() => buildCustomOptions(routes, customRouteIds), [routes, customRouteIds]);
+  const routeGroups = useMemo(() => buildRouteGroups(routes).map(group => ({
+    ...group, options: group.options.map(option => withQr(option, showQr)),
+  })), [routes, showQr]);
+  const customOptions = useMemo(() => buildCustomOptions(routes, customRouteIds)
+    .map(option => withQr(option, showQr)), [routes, customRouteIds, showQr]);
   const allOptions = useMemo(
     () => [...overviewOptions, ...customOptions, ...routeGroups.flatMap(group => group.options)],
-    [customOptions, routeGroups],
+    [overviewOptions, customOptions, routeGroups],
   );
   const allIds = useMemo(() => allOptions.map(option => option.id), [allOptions]);
   const portraitIds = useMemo(
@@ -126,7 +135,7 @@ export default function ExportIndex() {
     getRoutes().then(rs => {
       setRoutes(rs);
       const groups = buildRouteGroups(rs);
-      setSelectedIds(new Set([...overviewOptions, ...groups.flatMap(group => group.options)].map(option => option.id)));
+      setSelectedIds(new Set([...baseOverviewOptions, ...groups.flatMap(group => group.options)].map(option => option.id)));
       setLoading(false);
     });
   }, []);
@@ -220,7 +229,7 @@ export default function ExportIndex() {
     if (include.length === 0) return;
     setExporting(true);
     try {
-      const job = await startExportImages(include, 1500, 2);
+      const job = await startExportImages(include, 1500, 2, showQr);
       setExportJob(job);
       messageApi.info('已开始导出图片');
       pollExportJob(job.id);
@@ -302,6 +311,7 @@ export default function ExportIndex() {
           <div style={{ fontSize: 14, color: '#52635a', lineHeight: 1.7 }}>
             当前勾选 <b>{selectedIds.size}</b> 张。{canExport ? '点击一键导出后，请保持本页打开；完成后可选择保存压缩包位置。' : '一键导出只对编辑链接开放；只读链接可以继续手动预览。'}
           </div>
+          <Checkbox checked={showQr} onChange={event => setShowQr(event.target.checked)} style={{ marginTop: 10 }}>显示二维码</Checkbox>
           {exportJob && (
             <div style={{
               marginTop: 12,

@@ -1,3 +1,4 @@
+import { useExportQr } from './ExportQrContext';
 import dayjs from 'dayjs';
 import type { Route, Stop } from '../../types';
 import { routeQrUrl } from '../../api';
@@ -29,9 +30,9 @@ export default function CustomRoutesSidebar({ routes }: Props) {
   const compact = totalStops > 24;
 
   return (
-    <div style={{
+    <div data-export-panel style={{
       width: '100%',
-      height: '100%',
+      flex: 1,
       display: 'flex',
       flexDirection: 'column',
       background: EXPORT_PANEL_BG,
@@ -39,7 +40,7 @@ export default function CustomRoutesSidebar({ routes }: Props) {
       padding: 40,
       boxShadow: '0 4px 24px rgba(0,0,0,.06)',
       fontFamily: '"PingFang SC", "Microsoft YaHei", sans-serif',
-      color: '#1a1a1a',
+      color: '#1a1a1a', overflowWrap: 'anywhere',
       boxSizing: 'border-box',
       overflow: 'hidden',
     }}>
@@ -53,11 +54,10 @@ export default function CustomRoutesSidebar({ routes }: Props) {
       </div>
 
       <div style={{
-        flex: 1,
+        flex: '1 0 auto',
         display: 'grid',
         gridTemplateColumns: totalStops > CUSTOM_ROUTE_TWO_COL_THRESHOLD ? '1fr 1fr' : '1fr',
         gap: compact ? '14px 26px' : '18px 30px',
-        overflow: 'hidden',
         alignContent: 'start',
       }}>
         {sorted.map(route => (
@@ -82,6 +82,8 @@ function totalStopRows(routes: Route[]) {
 }
 
 function QrStrip({ routes }: { routes: Route[] }) {
+  const showQr = useExportQr();
+  if (!showQr) return null;
   const qrSize = routes.length <= 2 ? 130 : routes.length <= 3 ? 112 : 94;
 
   return (
@@ -101,7 +103,7 @@ function QrStrip({ routes }: { routes: Route[] }) {
             src={route.qr_code_path ? routeQrUrl(route.id, route.qr_code_path) : undefined}
             caption="二维码"
           />
-          <div style={{ maxWidth: qrSize + 26, fontSize: 12, color: '#78817a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <div style={{ maxWidth: qrSize + 26, fontSize: 12, color: '#78817a', overflowWrap: 'anywhere', textAlign: 'center', lineHeight: 1.4 }}>
             {route.name}
           </div>
         </div>
@@ -118,7 +120,7 @@ function RouteFlowBlock({ route, compact }: { route: Route; compact: boolean }) 
   const dist = Math.round(routeDistance(route));
 
   return (
-    <div style={{ minWidth: 0 }}>
+    <div data-export-route={route.id} data-export-item style={{ minWidth: 0 }}>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', minWidth: 0 }}>
         <span style={{
           width: 16,
@@ -163,16 +165,18 @@ function FlowChip({ stop, routeColor, isLast, compact }: { stop: Stop; routeColo
 
   return (
     <>
-      <span style={{
+      <span data-export-stop={stop.id} data-export-item style={{
         display: 'inline-flex',
+        maxWidth: '100%',
+        minWidth: 0,
         alignItems: 'baseline',
         gap: 4,
         fontSize: compact ? 15 : 17,
         color: '#303a34',
-        whiteSpace: 'nowrap',
+        overflowWrap: 'anywhere',
       }}>
         {isFlight && <span style={{ color: routeColor, fontSize: compact ? 12 : 14 }}>✈</span>}
-        <b style={{ fontWeight: 550 }}>{stop.city_name}</b>
+        <b style={{ fontWeight: 550, minWidth: 0 }}>{stop.city_name}</b>
         {dateLabel && <span style={{ fontSize: compact ? 12 : 13, color: '#8a928c' }}>{dateLabel}</span>}
       </span>
       {!isLast && <span style={{ color: routeColor, fontSize: compact ? 15 : 17, opacity: 0.75 }}>→</span>}

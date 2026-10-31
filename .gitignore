@@ -59,3 +59,8 @@ files/
 # Logs
 *.log
 start-personal.sh
+
+# Personal route manifests and deployment configuration (use fly.toml.example)
+/data/
+/fly.toml
+backend/exports/

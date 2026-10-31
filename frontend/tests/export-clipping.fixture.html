@@ -1,0 +1,26 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Export layout guard fixture</title>
+<style>
+  body { margin: 0; font: 16px sans-serif; }
+  #export-canvas { width: 400px; min-height: 200px; padding: 20px; box-sizing: border-box; }
+  #panel { overflow: hidden; }
+  #item { min-height: 100px; }
+</style>
+<div id="export-canvas" data-export-expected-routes="1">
+  <div id="panel" data-export-panel>
+    <div id="item" data-export-route="1" data-export-item>测试线路与完整显示的文字</div>
+  </div>
+</div>
+<script type="module">
+  import { inspectExportLayout } from '../scripts/lib/export-layout.mjs';
+  const root = document.querySelector('#export-canvas');
+  const mode = new URLSearchParams(location.search).get('case');
+  if (mode === 'clipped') document.querySelector('#panel').style.height = '30px';
+  if (mode === 'missing') root.dataset.exportExpectedRoutes = '2';
+  if (mode === 'hidden') document.querySelector('#item').style.display = 'none';
+  await document.fonts.ready;
+  const report = inspectExportLayout(root);
+  root.dataset.exportLayoutStatus = report.ok ? 'ready' : 'error';
+  root.dataset.exportLayoutErrors = JSON.stringify(report.issues);
+</script>

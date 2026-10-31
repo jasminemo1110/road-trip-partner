@@ -25,12 +25,12 @@ export default function OverviewSidebar({ routes }: Props) {
   const twoCol = routes.length > OVERVIEW_TWO_COL_THRESHOLD;
 
   return (
-    <div style={{
-      width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
+    <div data-export-panel style={{
+      width: '100%', flex: 1, display: 'flex', flexDirection: 'column',
       background: EXPORT_PANEL_BG, borderRadius: 16, padding: 40,
       boxShadow: '0 4px 24px rgba(0,0,0,.06)',
       fontFamily: '"PingFang SC", "Microsoft YaHei", sans-serif',
-      color: '#1a1a1a', boxSizing: 'border-box', overflow: 'hidden',
+      color: '#1a1a1a', overflowWrap: 'anywhere', boxSizing: 'border-box', overflow: 'hidden',
       }}>
       <div style={{ borderBottom: `2px solid ${EXPORT_DIVIDER}`, paddingBottom: 28, marginBottom: 28 }}>
         <ExportTitleLogo height={166} />
@@ -55,10 +55,10 @@ export default function OverviewSidebar({ routes }: Props) {
           beyond that. The sidebar itself widens (via ExportRender) so column
           width and per-row typography stay the same. */}
       <div style={{
-        flex: 1, display: 'grid',
+        flex: '1 0 auto', display: 'grid',
         gridTemplateColumns: twoCol ? '1fr 1fr' : '1fr',
         gap: '22px 32px',
-        overflow: 'hidden', alignContent: 'start',
+        alignContent: 'start',
       }}>
         {sorted.map(route => {
           const dist = Math.round(routeDistance(route));
@@ -66,7 +66,7 @@ export default function OverviewSidebar({ routes }: Props) {
           const end = routeEndDate(route);
           const days = routeTotalDays(route);
           return (
-            <div key={route.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+            <div key={route.id} data-export-route={route.id} data-export-item style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
               <span style={{
                 width: 18, height: 18, borderRadius: '50%',
                 background: route.color, marginTop: 8, flexShrink: 0,

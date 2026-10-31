@@ -179,6 +179,41 @@ script.src = `https://webapi.amap.com/maps?v=2.0&key=${AMAP_KEY}`;
 
 AI Agent 会自动解析模糊的日期格式（"8号9号神农架"→ 8 号到达、9 号离开）、连续日期、家乡起终点等细节，比你手动一个个填快几十倍。后端完整 API schema 见 `backend/main.py`。
 
+## 导出完整性与二维码
+
+- 导出页的“显示二维码”默认关闭，可按需开启；预览和一键导出使用同一设置。命令行开启方式：`npm run export:images -- --qr=true`。
+- 横版和竖版使用最小画布高度，线路列表与站点内容可继续撑高画布，不通过截断内容来维持固定比例。竖版全路线超过 8 条时使用三列。
+- 截图前会核对线路/站点数量、文字与容器边界；发现裁切或缺项时停止导出。图片超过浏览器尺寸或像素上限时，请减少所选线路或降低 `--scale`，不会静默丢掉线路。
+- 该检查验证内容排版，不替代地图瓦片、路网和图像加载检查；线上地图渲染限制仍见下文。
+
+### 本地验证
+
+```bash
+cd frontend
+npm test
+npm run build
+```
+
+合成线路测试不读取或修改真实行程。在 `frontend/` 下分别启动：
+
+```bash
+node scripts/layout-fixture-server.mjs
+npm run test:fixtures
+```
+
+打开 `http://127.0.0.1:5175/export/render?type=overview&orientation=portrait&count=12&longNames=true&qr=true`。可将 `count` 改为 9、10、11、12、24、60；移除 `orientation=portrait` 测横版，加 `layout=single` 测单地图竖版，切换 `qr=true/false` 测二维码。`/tests/export-clipping.fixture.html?case=clipped` 可验证裁切拦截，`case=missing` 和 `case=hidden` 分别验证缺项与隐藏内容。
+
+### 通过 JSON 录入与补充日期
+
+将个人线路文件放入被 Git 忽略的 `data/` 或 `files/`，不要提交真实行程、数据库或品牌图片。
+
+```bash
+python scripts/import_route.py files/my-route.json
+python scripts/update_route_dates.py files/my-route.json
+```
+
+导入脚本按路线名检测重复并在事务中创建站点；日期脚本按路线名、年份、站点顺序及地名核对，仅更新日期并先备份数据库。JSON 的 `stops` 包含 `city_name`、从 0 开始的 `order`、坐标和 `transport_mode`；补日期时还需每站的 `arrival_date`、`departure_date`（`YYYY-MM-DD`）。
+
 ## 品牌定制（Branding）
 
 项目支持运行时配置站名、个人信息、自定义图片等，**全部通过环境变量**——同一份代码可以部署多个外观不同的站点。
